@@ -302,6 +302,10 @@ typedef struct {
 #define IWDG_BASE  (APB1PERIPH_BASE + 0x3000U)
 #define IWDG       ((IWDG_TypeDef *)IWDG_BASE)
 
+/* ── ESIG (Electronic Signature) ──────────────────────────────── */
+#define ESIG_UID_BASE     0x1FFFF7E8U  /* 96-bit unique ID (12 bytes) */
+#define ESIG_FLACAP       0x1FFFF7E0U  /* Flash capacity (16 bits, KB) */
+
 /* ── Interrupt enable/disable ─────────────────────────────────── */
 static inline void __disable_irq(void) {
     __asm volatile("csrc 0x800, %0" :: "r"(0x88));

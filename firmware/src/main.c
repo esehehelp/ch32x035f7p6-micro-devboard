@@ -35,7 +35,7 @@ int main(void) {
                 ch32x_cdc_write(buf, n);
         }
 
-        IWDG->CTLR = 0xAAAA;
+        IWDG->CTLR = 0xAAAA;  /* feed in case previous firmware left IWDG running */
         __asm volatile("");
     }
 }

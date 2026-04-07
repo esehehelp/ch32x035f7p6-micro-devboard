@@ -24,6 +24,7 @@ void     ch32x_cdc_reboot_to_bootrom(void);
 
 /* Read */
 int      ch32x_cdc_available(void);
+int      ch32x_cdc_peek(void);
 int      ch32x_cdc_read(void);
 size_t   ch32x_cdc_read_buf(uint8_t *buf, size_t max);
 

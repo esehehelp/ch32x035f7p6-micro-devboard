@@ -103,9 +103,10 @@ static const uint8_t prod_descr[] = {
     'U',0, 'S',0, 'B',0, ' ',0, 'S',0, 'e',0, 'r',0, 'i',0, 'a',0, 'l',0
 };
 
-/* Serial number: filled at runtime from chip UID */
-static uint8_t serial_descr[34] = {
-    0x22, 0x03,
+/* Serial number: filled at runtime from chip UID (96-bit = 24 hex chars) */
+static uint8_t serial_descr[50] = {
+    0x32, 0x03,
+    '0',0,'0',0,'0',0,'0',0,'0',0,'0',0,'0',0,'0',0,
     '0',0,'0',0,'0',0,'0',0,'0',0,'0',0,'0',0,'0',0,
     '0',0,'0',0,'0',0,'0',0,'0',0,'0',0,'0',0,'0',0
 };
@@ -158,8 +159,8 @@ void ch32x_cdc_on_rx(const uint8_t *buf, size_t len) {
 /* ── Build serial number from chip UID ───────────────────────── */
 static void build_serial(void) {
     static const char hex[] = "0123456789ABCDEF";
-    const uint8_t *uid = (const uint8_t *)0x1FFFF7E8;
-    for (int i = 0; i < 8; i++) {
+    const uint8_t *uid = (const uint8_t *)ESIG_UID_BASE;
+    for (int i = 0; i < 12; i++) {
         serial_descr[2 + i*4 + 0] = hex[(uid[i] >> 4) & 0xF];
         serial_descr[2 + i*4 + 1] = 0;
         serial_descr[2 + i*4 + 2] = hex[uid[i] & 0xF];
@@ -204,7 +205,7 @@ void ch32x_cdc_reboot_to_bootrom(void) {
     __disable_irq();
     if (pre_reboot_hook) pre_reboot_hook();
     USBFSD->BASE_CTRL &= ~USBFS_UC_DEV_PU_EN;
-    for (volatile int i = 0; i < 100000; i++) __asm volatile("");
+    for (volatile int i = 0; i < 800000; i++) __asm volatile("");
     RCC->RSTSCKR |= RCC_RSTSCKR_RMVF;
     FLASH->BOOT_MODEKEYR = FLASH_KEY1;
     FLASH->BOOT_MODEKEYR = FLASH_KEY2;
@@ -514,6 +515,7 @@ void ch32x_cdc_init(const ch32x_cdc_config_t *cfg) {
 
     /* USB controller init */
     USBFSD->BASE_CTRL = USBFS_UC_RESET_SIE | USBFS_UC_CLR_ALL;
+    __asm volatile("nop; nop; nop; nop");
     USBFSD->BASE_CTRL = 0;
     endp_init();
     USBFSD->DEV_ADDR  = 0;
@@ -530,6 +532,11 @@ void ch32x_cdc_init(const ch32x_cdc_config_t *cfg) {
 
 int ch32x_cdc_available(void) {
     return (uint8_t)(rx_head - rx_tail);
+}
+
+int ch32x_cdc_peek(void) {
+    if (rx_head == rx_tail) return -1;
+    return rx_ring[rx_tail];
 }
 
 int ch32x_cdc_read(void) {
@@ -552,7 +559,9 @@ size_t ch32x_cdc_write(const uint8_t *buf, size_t len) {
     if (!devConfig) return 0;
     size_t total = 0;
     while (total < len) {
-        while (tx_busy) __asm volatile("");
+        uint32_t timeout = 1000000;
+        while (tx_busy && --timeout) __asm volatile("");
+        if (tx_busy) return total;
         size_t chunk = len - total;
         if (chunk > EP_SIZE) chunk = EP_SIZE;
         memcpy(ep3_tx_dma, buf + total, chunk);
@@ -566,7 +575,8 @@ size_t ch32x_cdc_write(const uint8_t *buf, size_t len) {
 }
 
 void ch32x_cdc_flush(void) {
-    while (tx_busy) __asm volatile("");
+    uint32_t timeout = 1000000;
+    while (tx_busy && --timeout) __asm volatile("");
 }
 
 size_t ch32x_cdc_print(const char *s) {
