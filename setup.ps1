@@ -1,7 +1,8 @@
 [CmdletBinding()]
 param(
     [string]$Sketchbook,
-    [switch]$SkipDriver
+    [switch]$SkipDriver,
+    [switch]$SkipProjectTools
 )
 
 $ErrorActionPreference = "Stop"
@@ -142,17 +143,27 @@ try {
         }
     }
 
-    # PlatformIO uses the same current uploader instead of its old package.
-    $pioToolsDestination = Join-Path $PSScriptRoot "firmware\tools"
-    New-Item -ItemType Directory -Force -Path $pioToolsDestination | Out-Null
-    Copy-Item -Force -LiteralPath $wchispExe.FullName -Destination (Join-Path $pioToolsDestination "wchisp.exe")
+    # PlatformIO finds these tools even when the installer is run from an
+    # archive that is removed after setup, or the project is cloned later.
+    $sharedToolsDestination = Join-Path $env:LOCALAPPDATA "CH32X035\tools"
+    New-Item -ItemType Directory -Force -Path $sharedToolsDestination | Out-Null
+    Copy-Item -Force -LiteralPath $wchispExe.FullName -Destination (Join-Path $sharedToolsDestination "wchisp.exe")
+
+    if (-not $SkipProjectTools) {
+        $pioToolsDestination = Join-Path $PSScriptRoot "firmware\tools"
+        New-Item -ItemType Directory -Force -Path $pioToolsDestination | Out-Null
+        Copy-Item -Force -LiteralPath $wchispExe.FullName -Destination (Join-Path $pioToolsDestination "wchisp.exe")
+    }
 
     # Current wchisp can use WCH's signed CH375 driver directly. Keeping this
     # DLL beside wchisp removes the old need to swap the device to WinUSB.
     $dllAsset = Get-GitHubAsset 'MeowKJ/BinaryKeyboard' 'toolchain-linux' 'CH375DLL64.dll'
     $dllPath = Join-Path $toolsDestination "CH375DLL64.dll"
     Save-Download $dllAsset.Uri $dllPath $dllAsset.Sha256
-    Copy-Item -Force -LiteralPath $dllPath -Destination (Join-Path $pioToolsDestination "CH375DLL64.dll")
+    Copy-Item -Force -LiteralPath $dllPath -Destination (Join-Path $sharedToolsDestination "CH375DLL64.dll")
+    if (-not $SkipProjectTools) {
+        Copy-Item -Force -LiteralPath $dllPath -Destination (Join-Path $pioToolsDestination "CH375DLL64.dll")
+    }
 
     if (-not $SkipDriver) {
         Write-Step "Installing the signed WCH USB ISP driver (a UAC prompt may appear)"

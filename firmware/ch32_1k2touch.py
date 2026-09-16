@@ -116,13 +116,19 @@ else:
         _local_wchisp = os.path.join(
             env.subst("$PROJECT_DIR"), "tools", "wchisp.exe"  # type: ignore
         )
-        # setup.bat installs a current build with WCH's native CH375 backend.
-        # PlatformIO's older bundled build requires Zadig/WinUSB on Windows.
-        _wchisp = (
-            _local_wchisp
-            if os.name == "nt" and os.path.isfile(_local_wchisp)
-            else _package_wchisp
-        )
+        # Both curl-based and local setup install a current build that uses
+        # WCH's native CH375 backend instead of requiring Zadig/WinUSB.
+        _wchisp = _package_wchisp
+        if os.name == "nt":
+            shared_root = os.environ.get("LOCALAPPDATA")
+            if shared_root:
+                _shared_wchisp = os.path.join(
+                    shared_root, "CH32X035", "tools", "wchisp.exe"
+                )
+                if os.path.isfile(_shared_wchisp):
+                    _wchisp = _shared_wchisp
+            if os.path.isfile(_local_wchisp):
+                _wchisp = _local_wchisp
         _script = os.path.join(env.subst("$PROJECT_DIR"), "ch32_1k2touch.py")  # type: ignore
         env.Replace(  # type: ignore
             UPLOADCMD='"%s" "%s" "%s" "$SOURCE"'

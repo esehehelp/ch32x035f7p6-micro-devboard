@@ -9,21 +9,28 @@ ESP32/RP2040 の Arduino Serial と同じ体験 — 初期化を呼ぶだけで 
 
 ## Windows クイックセットアップ
 
-Arduino IDE を閉じ、リポジトリ直下の **`setup.bat` をダブルクリック**する。以下が自動で入る。
+Arduino IDE を閉じ、PowerShell で以下を実行する。Git やリポジトリの事前ダウンロードは不要。
+
+```powershell
+curl.exe -fL https://raw.githubusercontent.com/esehehelp/ch32x035f7p6-micro-devboard/fix/usb-c-pd-cdc-stability/install.ps1 -o install.ps1
+if ($LASTEXITCODE -ne 0) { throw 'Download failed' }
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
+```
+
+実行前にダウンロードした `install.ps1` の内容を確認できる。インストーラはボードのソースを一時取得し、以下を自動で入れる。
 
 - Arduino スケッチブックへのボードコア
 - WCH RISC-V GCC ツールチェイン
 - 最新の `wchisp` と `CH375DLL64.dll`
 - WCH 署名済み USB ISP ドライバ（ここだけ UAC 確認あり）
-- PlatformIO 向けの Windows 用アップローダ
+- PlatformIO 向けの Windows 用アップローダ（`%LOCALAPPDATA%\CH32X035\tools`）
 
 完了後に Arduino IDE を起動し直し、**CH32X035F7P6 Micro Devboard** を選択する。以後は Zadig で WinUSB と WCH ドライバを入れ替える必要はない。
 
-PowerShell から実行する場合は次でも同じ。スケッチブックが特殊な位置にある場合だけ `-Sketchbook` を指定する。
+すでにリポジトリがある場合は `setup.bat` をダブルクリックしても同じ。スケッチブックが特殊な位置にある場合だけ次のように指定する。
 
 ```powershell
-.\setup.ps1
-.\setup.ps1 -Sketchbook D:\Arduino
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Sketchbook D:\Arduino
 ```
 
 ## PlatformIO (firmware/)
@@ -64,13 +71,13 @@ pio run -t upload
 
 初回書き込みは wch-link (SWD) が必要。一度ファームウェアが動けば、以降は USB ケーブルだけで `pio run -t upload` でフラッシュできる。
 
-Windows では先に `setup.bat` を一度実行する。PlatformIO 同梱の古い `wchisp` ではなく、WCH 公式ドライバに対応した新しい版が自動的に使われる。
+Windows では先に上記の curl セットアップ、または `setup.bat` を一度実行する。PlatformIO 同梱の古い `wchisp` ではなく、WCH 公式ドライバに対応した新しい版が自動的に使われる。
 
 ## Arduino IDE (arduino/)
 
 ### インストール
 
-Windows では上記の `setup.bat` だけで完了する。手動コピー、Python/ツールチェインの PATH 設定、Zadig は不要。
+Windows では上記の curl セットアップだけで完了する。手動コピー、Python/ツールチェインの PATH 設定、Zadig は不要。
 
 Arduino IDE では次の順に選ぶ。
 
