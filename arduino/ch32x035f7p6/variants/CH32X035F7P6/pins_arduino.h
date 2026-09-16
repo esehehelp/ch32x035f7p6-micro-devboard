@@ -13,8 +13,68 @@
 #define NUM_DIGITAL_PINS    14
 #define NUM_ANALOG_INPUTS   8
 
-/* D11 = PC3 = devboard LED */
-#define LED_BUILTIN         11
+/* Stable Arduino numbers. The board silk uses MCU port names, so sketches can
+ * use either PA0/PC1/etc. or D0/D10/etc. without guessing numeric values. */
+#define PIN_PA0             0
+#define PIN_PA1             1
+#define PIN_PA2             2
+#define PIN_PA3             3
+#define PIN_PA4             4
+#define PIN_PA5             5
+#define PIN_PA6             6
+#define PIN_PA7             7
+#define PIN_PB1             8
+#define PIN_PB12            9
+#define PIN_PC1             10
+#define PIN_PC3             11
+#define PIN_PC18            12
+#define PIN_PC19            13
+
+#define PA0                 PIN_PA0
+#define PA1                 PIN_PA1
+#define PA2                 PIN_PA2
+#define PA3                 PIN_PA3
+#define PA4                 PIN_PA4
+#define PA5                 PIN_PA5
+#define PA6                 PIN_PA6
+#define PA7                 PIN_PA7
+#define PB1                 PIN_PB1
+#define PB12                PIN_PB12
+#define PC1                 PIN_PC1
+#define PC3                 PIN_PC3
+#define PC18                PIN_PC18
+#define PC19                PIN_PC19
+
+#define D0                  PIN_PA0
+#define D1                  PIN_PA1
+#define D2                  PIN_PA2
+#define D3                  PIN_PA3
+#define D4                  PIN_PA4
+#define D5                  PIN_PA5
+#define D6                  PIN_PA6
+#define D7                  PIN_PA7
+#define D8                  PIN_PB1
+#define D9                  PIN_PB12
+#define D10                 PIN_PC1
+#define D11                 PIN_PC3
+#define D12                 PIN_PC18
+#define D13                 PIN_PC19
+
+/* Board functions. PC3 is shared by the LED, RESET switch, and the MCU's
+ * NRST/PC3 pad. PC18/PC19 remain usable as GPIO but doing so occupies SWD. */
+#define LED_BUILTIN         PIN_PC3
+#define PIN_LED             PIN_PC3
+#define PIN_SWDIO           PIN_PC18
+#define PIN_SWCLK           PIN_PC19
+
+/* Peripheral-capable pins exposed by this package. These names describe the
+ * hardware routing; SPI/UART classes are not implemented in this minimal core. */
+#define PIN_SPI_SS          PIN_PA4
+#define PIN_SPI_SCK         PIN_PA5
+#define PIN_SPI_MISO        PIN_PA6
+#define PIN_SPI_MOSI        PIN_PA7
+#define PIN_HARDWARE_SERIAL_TX PIN_PA2
+#define PIN_HARDWARE_SERIAL_RX PIN_PA3
 
 /*
  * Arduino pin  ->  GPIO
@@ -35,13 +95,13 @@
  */
 
 /* Analog pin aliases */
-#define A0  0
-#define A1  1
-#define A2  2
-#define A3  3
-#define A4  4
-#define A5  5
-#define A6  6
-#define A7  7
+#define A0  PIN_PA0
+#define A1  PIN_PA1
+#define A2  PIN_PA2
+#define A3  PIN_PA3
+#define A4  PIN_PA4
+#define A5  PIN_PA5
+#define A6  PIN_PA6
+#define A7  PIN_PA7
 
 #endif /* pins_arduino_h */

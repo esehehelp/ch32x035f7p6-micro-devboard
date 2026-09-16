@@ -1,8 +1,9 @@
 name=CH32X035F7P6 Boards
-version=0.1.0
+version=0.2.0
 
-# Compiler (reuse WCH-installed RISC-V toolchain)
-compiler.path={runtime.tools.riscv-none-embed-gcc.path}/bin/
+# Compiler (setup.bat installs this into the platform, so no second board
+# package or PATH editing is required.)
+compiler.path={runtime.platform.path}/tools/gcc/bin/
 compiler.c.cmd=riscv-none-embed-gcc
 compiler.cpp.cmd=riscv-none-embed-g++
 compiler.ar.cmd=riscv-none-embed-ar
@@ -72,3 +73,4 @@ tools.ch32_1k2touch.cmd.windows=python.exe
 tools.ch32_1k2touch.upload.params.verbose=
 tools.ch32_1k2touch.upload.params.quiet=
 tools.ch32_1k2touch.upload.pattern="{cmd}" "{runtime.platform.path}/tools/ch32_upload.py" "{serial.port}" "{build.path}/{build.project_name}.bin"
+tools.ch32_1k2touch.upload.pattern.windows=powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "{runtime.platform.path}/tools/ch32_upload.ps1" -Port "{serial.port}" -Firmware "{build.path}/{build.project_name}.bin"

@@ -7,6 +7,25 @@ CH32X035F7P6 (RISC-V, 48 MHz, 62 KB flash, 20 KB RAM) の小型開発ボード�
 USB CDC-ACM ライブラリ (`ch32x-cdc`) を中心に、PlatformIO と Arduino IDE の両方をサポート。
 ESP32/RP2040 の Arduino Serial と同じ体験 — 初期化を呼ぶだけで USB シリアルが使え、1200bps タッチでファームウェア更新ができる。
 
+## Windows クイックセットアップ
+
+Arduino IDE を閉じ、リポジトリ直下の **`setup.bat` をダブルクリック**する。以下が自動で入る。
+
+- Arduino スケッチブックへのボードコア
+- WCH RISC-V GCC ツールチェイン
+- 最新の `wchisp` と `CH375DLL64.dll`
+- WCH 署名済み USB ISP ドライバ（ここだけ UAC 確認あり）
+- PlatformIO 向けの Windows 用アップローダ
+
+完了後に Arduino IDE を起動し直し、**CH32X035F7P6 Micro Devboard** を選択する。以後は Zadig で WinUSB と WCH ドライバを入れ替える必要はない。
+
+PowerShell から実行する場合は次でも同じ。スケッチブックが特殊な位置にある場合だけ `-Sketchbook` を指定する。
+
+```powershell
+.\setup.ps1
+.\setup.ps1 -Sketchbook D:\Arduino
+```
+
 ## PlatformIO (firmware/)
 
 ### 構成
@@ -45,21 +64,52 @@ pio run -t upload
 
 初回書き込みは wch-link (SWD) が必要。一度ファームウェアが動けば、以降は USB ケーブルだけで `pio run -t upload` でフラッシュできる。
 
+Windows では先に `setup.bat` を一度実行する。PlatformIO 同梱の古い `wchisp` ではなく、WCH 公式ドライバに対応した新しい版が自動的に使われる。
+
 ## Arduino IDE (arduino/)
 
 ### インストール
 
-1. `arduino/ch32x035f7p6/` を Arduino のハードウェアディレクトリにコピーまたはシンボリックリンク:
-   ```bash
-   # Linux
-   ln -s $(pwd)/arduino/ch32x035f7p6 ~/.arduino15/packages/ch32x035f7p6
+Windows では上記の `setup.bat` だけで完了する。手動コピー、Python/ツールチェインの PATH 設定、Zadig は不要。
 
-   # または Arduino IDE の「ファイル > 環境設定 > スケッチブックの保存場所」内の
-   # hardware/ch32x035f7p6/ に配置
-   ```
-2. ツールチェイン: WCH の RISC-V GCC (`xpack-riscv-none-embed-gcc`) をパスに追加
-3. ボード選択: **CH32X035F7P6** を選択
-4. アップロード: 1200bps タッチ + wchisp による自動書き込み
+Arduino IDE では次の順に選ぶ。
+
+1. **Tools > Board > CH32X035F7P6 Boards > CH32X035F7P6 Micro Devboard**
+2. **Tools > Port** でボードの COM ポート
+3. **File > Examples > CH32X035 Examples > 01_Blink**
+4. Upload を押す
+
+ボードがすでに BootROM に入って COM ポートが見えない場合も、そのまま Upload を押せば `wchisp` が検出する。
+
+### Examples
+
+- `01_Blink` — オンボード LED (PC3)
+- `02_SerialHello` — USB Serial へカウンタ出力
+- `03_SerialEcho` — Serial Monitor の送受信
+- `04_DigitalInputPullup` — D0/PA0 の内蔵プルアップ入力
+
+### ピンアサイン
+
+基板シルクと同じ `PA0`, `PB12`, `PC1` などの名前をスケッチで直接使える。Arduino 互換の `D0` / `A0` 形式も同じピンを指す。
+
+| Arduino | MCU / silk | MCU pin | Notes |
+|---:|---|---:|---|
+| D0 / A0 | PA0 | 6 | ADC0 |
+| D1 / A1 | PA1 | 7 | ADC1 |
+| D2 / A2 | PA2 | 8 | ADC2, USART2 TX capable |
+| D3 / A3 | PA3 | 9 | ADC3, USART2 RX capable |
+| D4 / A4 | PA4 | 10 | ADC4, SPI SS capable |
+| D5 / A5 | PA5 | 11 | ADC5, SPI SCK capable |
+| D6 / A6 | PA6 | 12 | ADC6, SPI MISO capable |
+| D7 / A7 | PA7 | 13 | ADC7, SPI MOSI capable |
+| D8 | PB1 | 14 | ADC9 capable |
+| D9 | PB12 | 1 | GPIO |
+| D10 | PC1 | 5 | GPIO |
+| D11 | PC3 | 4 | `LED_BUILTIN`、RESET ボタン/NRST と共有 |
+| D12 | PC18 | 19 | SWDIO と共有 |
+| D13 | PC19 | 20 | SWCLK と共有 |
+
+USB 用の PC14 (CC1), PC15 (CC2), PC16 (D-), PC17 (D+) は Arduino デジタルピンに含めない。PC18/PC19 を GPIO にすると SWD デバッグと競合する。また現在の最小コアは `analogRead()` / SPI / HardwareSerial をまだ実装していないため、表の peripheral capable は MCU の配線能力を示す。
 
 ### Arduino API サポート
 
@@ -141,7 +191,7 @@ int main(void) {
 - **レジスタ定義**: `ch32x_regs.h` は TRM から自作した MIT ライセンスの定義。WCH HAL/EVT に依存しない。
 - **割り込み**: `USBFS_IRQHandler` はライブラリが strong シンボルとして提供。`startup.S` の weak シンボルをリンカが解決。
 - **ISR 属性**: GCC 8.2 (Arduino/WCH ツールチェイン) では `__attribute__((interrupt))` を使用。`WCH-Interrupt-fast` はカリーセーブドレジスタしか保存しないバグがある。GCC 12 (PlatformIO) では `WCH-Interrupt-fast` で問題なし。
-- **BootROM 突入**: `FLASH->BOOT_MODEKEYR` アンロック → `FLASH->STATR |= BOOT_MODE` → PFIC システムリセット。チップ内蔵 ISP (0x1FFF0000) が起動し、wchisp で書き込み可能。
+- **BootROM 突入**: `FLASH->BOOT_MODEKEYR` アンロック → `FLASH->STATR |= BOOT_MODE` → PFIC システムリセット。チップ内蔵 ISP (0x1FFF0000) が起動し、wchisp で書き込み可能。1200bps の line coding だけでは発火せず、DTR 解放まで完了した touch だけを受け付ける。
 - **USB-C**: PC14/PC15 に CC プルダウンを設定 (USBPD ペリフェラル経由)。ホストが VBUS を供給するために必要。
 - **HardFault**: サンプルアプリでは HardFault 時に BootROM へリブート。クラッシュしてもファームウェア書き直し可能。
 - **IWDG**: 旧ファームウェアが IWDG を起動していた場合、ソフトウェアリセットでは停止しない。メインループで `IWDG->CTLR = 0xAAAA` で給餌するか、電源を入れ直す。

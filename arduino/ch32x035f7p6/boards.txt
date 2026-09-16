@@ -7,8 +7,6 @@ ch32x035f7p6.upload.tool=ch32_1k2touch
 ch32x035f7p6.upload.protocol=ch32_1k2touch
 ch32x035f7p6.upload.maximum_size=63488
 ch32x035f7p6.upload.maximum_data_size=20480
-ch32x035f7p6.upload.use_1200bps_touch=true
-ch32x035f7p6.upload.wait_for_upload_port=true
 
 ch32x035f7p6.build.core=arduino
 ch32x035f7p6.build.board=CH32X035F7P6

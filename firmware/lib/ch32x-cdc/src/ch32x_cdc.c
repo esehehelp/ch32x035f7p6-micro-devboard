@@ -129,6 +129,7 @@ static volatile uint8_t  devAddr;
 
 /* ── Reboot state (polled from main loop) ────────────────────── */
 static volatile uint8_t  reboot_pending;
+static volatile uint8_t  magic_baud_armed;
 
 /* ── Endpoint buffers (4-byte aligned for DMA) ───────────────── */
 __attribute__((aligned(4))) static uint8_t ep0_buf[EP0_SIZE];
@@ -184,8 +185,8 @@ static void endp_init(void) {
     USBFSD->UEP3_TX_LEN = 0;
 }
 
-/* ── CC pull-down (USB-C sink detection) ─────────────────────── */
-static void cc_pulldown_init(void) {
+/* ── USB-C sink CC setup ─────────────────────────────────────── */
+static void cc_sink_init(void) {
     RCC->APB2PCENR |= RCC_APB2Periph_AFIO | RCC_APB2Periph_GPIOC;
     RCC->AHBPCENR  |= RCC_AHBPeriph_USBPD;
 
@@ -193,6 +194,12 @@ static void cc_pulldown_init(void) {
     GPIOC->CFGHR = (GPIOC->CFGHR & ~(0xFFu << 24)) | (0x44u << 24);
 
     AFIO->CTLR |= AFIO_CTLR_USBPD_IN_HVT | AFIO_CTLR_USBPD_PHY_V33;
+    USBPD->CONFIG = 0;
+    USBPD->CONTROL = 0;
+
+    /* The board has discrete 5.1k Rd resistors on both CC pins.
+     * On CH32X035, CC_PD is used as the USBPD sink role marker; it is not
+     * a substitute for the external Rd termination. */
     USBPD->PORT_CC1 = CC_CMP_66 | CC_PD;
     USBPD->PORT_CC2 = CC_CMP_66 | CC_PD;
 }
@@ -247,8 +254,15 @@ void USBFS_IRQHandler(void) {
                 case CDC_GET_LINE_CODING:
                     pDescr = cdc_line_coding; len = 7; break;
                 case CDC_SET_LINE_CODING:
-                case CDC_SET_LINE_CTLSTE:
                 case CDC_SEND_BREAK:
+                    break;
+                case CDC_SET_LINE_CTLSTE:
+                    /* A touch is a 1200-bps open followed by DTR release.
+                     * Selecting 1200 in Serial Monitor alone must not reboot. */
+                    if (magic_baud_armed && !(setupReqValue & 0x0001u)) {
+                        reboot_pending = 1;
+                        magic_baud_armed = 0;
+                    }
                     break;
                 default: err = 1; break;
                 }
@@ -421,9 +435,7 @@ void USBFS_IRQHandler(void) {
                                               | ((uint32_t)cdc_line_coding[1] << 8)
                                               | ((uint32_t)cdc_line_coding[2] << 16)
                                               | ((uint32_t)cdc_line_coding[3] << 24);
-                                if (baud == magic_baud) {
-                                    reboot_pending = 1;
-                                }
+                                magic_baud_armed = (baud == magic_baud);
                             }
                         }
                         setupReqLen = 0;
@@ -435,8 +447,8 @@ void USBFS_IRQHandler(void) {
                     }
                 }
             } else if (ep == 2) {
-                USBFSD->UEP2_CTRL_H ^= USBFS_UEP_R_TOG;
                 if (intst & USBFS_UIS_TOG_OK) {
+                    USBFSD->UEP2_CTRL_H ^= USBFS_UEP_R_TOG;
                     uint16_t rxlen = USBFSD->RX_LEN;
                     for (uint16_t i = 0; i < rxlen; i++) {
                         uint8_t next = (uint8_t)(rx_head + 1);
@@ -448,6 +460,8 @@ void USBFS_IRQHandler(void) {
                     if (rxlen > 0)
                         ch32x_cdc_on_rx(ep2_rx_buf, rxlen);
                 }
+                USBFSD->UEP2_CTRL_H = (USBFSD->UEP2_CTRL_H & ~USBFS_UEP_R_RES_MASK)
+                                     | USBFS_UEP_R_RES_ACK;
             }
             break;
 
@@ -461,6 +475,7 @@ void USBFS_IRQHandler(void) {
         USBFSD->DEV_ADDR = 0;
         endp_init();
         reboot_pending = 0;
+        magic_baud_armed = 0;
         cdc_line_coding[0] = 0x00; cdc_line_coding[1] = 0xC2;
         cdc_line_coding[2] = 0x01; cdc_line_coding[3] = 0x00;
         cdc_line_coding[4] = 0x00; cdc_line_coding[5] = 0x00;
@@ -498,6 +513,9 @@ void ch32x_cdc_init(const ch32x_cdc_config_t *cfg) {
     RCC->APB2PCENR |= RCC_APB2Periph_AFIO | RCC_APB2Periph_GPIOC;
     RCC->AHBPCENR  |= RCC_AHBPeriph_USBFS;
 
+    /* Present sink termination before asserting the USB D+ pull-up. */
+    cc_sink_init();
+
     /* USB GPIO: PC16=DM floating, PC17=DP pull-up */
     GPIOC->CFGXR = (GPIOC->CFGXR & ~0xFFu) | 0x84u;
     GPIOC->BSHR  = (1 << 17);
@@ -517,9 +535,6 @@ void ch32x_cdc_init(const ch32x_cdc_config_t *cfg) {
     USBFSD->UDEV_CTRL = USBFS_UD_PD_DIS | USBFS_UD_PORT_EN;
     USBFSD->INT_EN    = USBFS_UIE_SUSPEND | USBFS_UIE_BUS_RST | USBFS_UIE_TRANSFER;
     NVIC_EnableIRQ(USBFS_IRQn);
-
-    /* USB-C CC pull-down */
-    cc_pulldown_init();
 }
 
 int ch32x_cdc_available(void) {
